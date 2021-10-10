@@ -3,7 +3,7 @@
 strain --help
 
 Rapid sketch practice program for artists.
-# Usage:
+### Usage:
  strain [options] -t [time] -p [path]
    -p [path]
      Search path. Without -p default is ./
@@ -24,12 +24,12 @@ Rapid sketch practice program for artists.
    -o
       Do not redirect xviewer output (debug info)
       Do not redirect xviewer output (debug info)
-# Details:
+### Details:
    The purpose of this program is to aid artists in rapid figure drawing.
    Cycles random images (xviewer) for the specified time in a directory.
    Allows you to go back through the images and pause / play.
    Image packs not included (cough, cough, torrents).
-# Controls:
+### Controls:
    spacebar : pause / resume
    r : reset timer
    left : previous image
@@ -37,7 +37,7 @@ Rapid sketch practice program for artists.
    up : add 30 seconds
    down : subtract 30 seconds
    shift+up/down : add/sub 30 minutes
-# BUGS
+### BUGS
    Spaces in paths. Linux std::filesystem::path appears to error on spaces. Google didn't find anything.
    The KB Arrow input is laggy and confusing. We're using 2 kinds of input. Should fix the arrow input.
    Window loses focus when xviewer shows. Annoying when cycling images ..
