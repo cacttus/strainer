@@ -33,10 +33,9 @@ int main(int argc, char** argv) {
     std::cout << "      Do not redirect xviewer output (debug info)" << std::endl;
     std::cout << "      Do not redirect xviewer output (debug info)" << std::endl;
     std::cout << "Details:" << std::endl;
-    std::cout << "   The purpose of this program is to aid artists in rapid figure drawing." << std::endl;
+    std::cout << "   The purpose of this program is to aid artists in drawing." << std::endl;
     std::cout << "   Cycles random images (xviewer) for the specified time in a directory." << std::endl;
-    std::cout << "   Allows you to go back through the images and pause / play." << std::endl;
-    std::cout << "   Image packs not included (cough, cough, torrents)." << std::endl;
+    std::cout << "   Allows you to go back through the images and pause and play." << std::endl;
     std::cout << "Controls:" << std::endl;
     std::cout << "   spacebar : pause / resume" << std::endl;
     std::cout << "   r : reset timer" << std::endl;

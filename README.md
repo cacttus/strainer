@@ -48,13 +48,11 @@ Rapid sketch practice program for artists.
 
 ### Details:
 
-   The purpose of this program is to aid artists in rapid figure drawing.
+   The purpose of this program is to aid artists in drawing.
 
    Cycles random images (xviewer) for the specified time in a directory.
 
-   Allows you to go back through the images and pause / play.
-
-   Image packs not included (cough, cough, torrents).
+   Allows you to go back through the images and pause and play.
 
 ### Controls:
 
