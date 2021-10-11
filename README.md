@@ -38,13 +38,25 @@ Rapid sketch practice program for artists.
 
    -v
 
-      Do not redirect xviewer output (debug info)
+      Verbose Output
 
-   -o
+  -a [program]
 
-      Do not redirect xviewer output (debug info)
+      Use [program] instead of xviewer to display images.
 
-      Do not redirect xviewer output (debug info)
+      Program runs in a fork subshell and outputs to /dev/null.
+
+      The -f switch will not apply.
+
+  -x
+
+      Allow time to be less than 5s (min 0s). [Use with caution]
+
+  -u
+
+      Timer will count up to the given time instead of down to zero.
+
+
 
 ### Details:
 
