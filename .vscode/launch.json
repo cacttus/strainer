@@ -9,11 +9,11 @@
       "name": "(gdb) Launch",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/bin/trainerd",
+      "program": "${workspaceFolder}/bin/strainerd",
       "args": [
         "-p", "~/Desktop/Untitled_Folder/", //"~/Desktop/ra/girls/",
         "-t", "5s",
-        "-hmin", "500", 
+        "-hmin", "999999", 
         "-hmax", "999999",
         "-f", 
       ],

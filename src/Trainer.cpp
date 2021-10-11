@@ -28,8 +28,8 @@ bool Gu::hasFocus() {
   return true;
   // god fuck this noise "can't get pid from winid" fuck that. seriously?
 
-  //wmctrl - l - p | grep 1648 | grep - o 0x03a0000f std::cout << getpid() << std::endl;
-  //std::cout << ret << " ";
+  //wmctrl - l - p | grep 1648 | grep - o 0x03a0000f std::wcout << getpid() << std::endl;
+  //std::wcout << ret << " ";
   auto display = XOpenDisplay(NULL);  //0:
   //XGetWindowAttributes(display,)
   Window focus;
@@ -64,7 +64,7 @@ std::string Gu::executeReadOutput(const std::string& cmd) {
       data.append(buffer);
     }
     if (ferror(stream)) {
-      std::cout << "Error executeReadOutput() " << std::endl;
+      std::wcout << "Error executeReadOutput() " << std::endl;
     }
     clearerr(stream);
     pclose(stream);
@@ -189,7 +189,7 @@ bool Gu::getImageSize(const char* fn, int* x, int* y) {
     fclose(f);
     return false;
   }
-  // std::cout << fn << std::endl;
+  // std::wcout << fn << std::endl;
   // Strategy:
   // reading GIF dimensions requires the first 10 bytes of the file
   // reading PNG dimensions requires the first 24 bytes of the file
@@ -298,47 +298,32 @@ void Input::update() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void Timer::init(const std::string& time, std::function<void()> tick) {
+void Timer::init(const std::string& time, std::function<void()> tick, bool allowZero) {
   _tick = tick;
-  _hours = _minutes = _seconds = 0;
-  parse(time, _hours, _minutes, _seconds);
-  updateWithNewTime();
+  _allowZero = allowZero;
+  setDuration(time);
 }
-void Timer::updateWithNewTime() {
-  if (_hours < 0) {
-    _hours = 0;
+void Timer::setDuration(const std::string& time) {
+  int64_t h, m, s, u;
+  parse(time, h, m, s, u);
+  _durationMs = toMs(h, m, s, u);
+  checkValidTime();
+}
+void Timer::checkValidTime() {
+  if (_durationMs < 0) {
+    _durationMs = 0;
   }
-  if (_minutes < 0) {
-    _minutes = 0;
-  }
-  if (_seconds < 0) {
-    _seconds = 0;
-  }
-  normalizeTime();
-
-  //Call every time we update the h/m/s
-  _tick_seconds = _hours * 60 * 60 + _minutes * 60 + _seconds;
-  if (_tick_seconds < 1) {
-    _hours = 0, _minutes = 0, _seconds = 1;
-    _tick_seconds = 1;
-    std::cout << "Warning total time is less than 1 second, setting to 1 second." << std::endl;
+  if (_allowZero == false && _durationMs < c_minTimeMS) {
+    _durationMs = c_minTimeMS;
+    std::wcout << "Warning total time is less than " << c_minTimeMS / 1000
+               << " second(s), setting to " << c_minTimeMS / 1000 << " second(s)." << std::endl;
   }
 }
-void Timer::normalizeTime() {
-  while (_seconds > 60) {
-    _seconds -= 60;
-    _minutes += 1;
-  }
-  while (_minutes > 60) {
-    _minutes -= 60;
-    _hours += 1;
-  }
-}
-void Timer::parse(const std::string& timestr, int64_t& _hours_out, int64_t& _minutes_out, int64_t& _seconds_out) {
+void Timer::parse(const std::string& timestr, int64_t& _hours_out, int64_t& _minutes_out, int64_t& _seconds_out, int64_t& _u_out) {
   std::string timestr_strip = timestr;
   timestr_strip = Gu::stripQuotes(timestr_strip);
 
-  _hours_out = _minutes_out = _seconds_out = 0;
+  _hours_out = _minutes_out = _seconds_out = _u_out = 0;
 
   std::string zh = "", zm = "", zs = "", us = "";
   std::string tok = "";
@@ -360,7 +345,7 @@ void Timer::parse(const std::string& timestr, int64_t& _hours_out, int64_t& _min
     }
     else if (c == 's') {
       if (zm.length()) {
-        std::cout << ("Warning: Time string invalid format, seconds already specified.") << std::endl;
+        std::wcout << ("Warning: Time string invalid format, seconds already specified.") << std::endl;
       }
       zs = tok;
       tok = "";
@@ -380,7 +365,7 @@ void Timer::parse(const std::string& timestr, int64_t& _hours_out, int64_t& _min
     }
   }
   if (tok.compare("")) {
-    std::cout << "Warning - time format incorrect." << std::endl;
+    std::wcout << "Warning - time format incorrect." << std::endl;
   }
   try {
     if (zh.compare("")) {
@@ -392,9 +377,12 @@ void Timer::parse(const std::string& timestr, int64_t& _hours_out, int64_t& _min
     if (zs.compare("")) {
       _seconds_out = std::stol(zs);
     }
+    if (us.compare("")) {
+      _u_out = std::stol(us);
+    }
   }
   catch (std::exception e) {
-    std::cout << "Exception in conversion for time: " << e.what() << std::endl;
+    std::wcout << "Exception in conversion for time: " << e.what() << std::endl;
   }
 }
 void Timer::start() {
@@ -424,37 +412,70 @@ void Timer::update() {
     uint64_t millis = d.count();
     _last = t2;
     _total += millis;
-    int64_t tick_millis = (int64_t)_tick_seconds * 1000;
-    while (_total > tick_millis) {
-      _total -= tick_millis;
+    while (_total > _durationMs) {
+      _total -= _durationMs;
       tick();
     }
   }
 }
+void Timer::parseMicroseconds(int64_t microseconds, int64_t& h, int64_t& m, int64_t& s, int64_t& u) {
+  h = m = s = u = 0;
+  h = microseconds / (60 * 60 * 1000);
+  microseconds %= (60 * 60 * 1000);
+  m = microseconds / (60 * 1000);
+  microseconds %= (60 * 1000);
+  s = microseconds / (1000);
+  microseconds %= (1000);
+  u = microseconds;
+}
 std::string Timer::getString(bool remaining) {
   std::string out = "";
-  int64_t cur_seconds = _total / 1000;
-  int64_t rem_seconds_tot = _tick_seconds - cur_seconds;
-  int64_t rem_m = rem_seconds_tot / 60;
-  int64_t rem_h = rem_seconds_tot / (60 * 60);
-  int64_t rem_s = rem_seconds_tot % 60;
-  int64_t rem_u = _total % 1000;
-
-  if (rem_h > 0) {
-    out += std::to_string(rem_h);
+  int64_t h = 0, m = 0, s = 0, u = 0;
+  if (remaining) {
+    parseMicroseconds(_durationMs - _total, h, m, s, u);
+  }
+  else {
+    parseMicroseconds(_total, h, m, s, u);
+  }
+  if (h > 0) {
+    out += std::to_string(h);
     out += ":";
   }
-  if (rem_h > 0 || rem_m > 0) {
-    out += std::to_string(rem_m);
+  if (h > 0 || m > 0) {
+    out += addPlaceholders(std::to_string(m), (h > 0) ? 2 : 0);
     out += ":";
   }
-  out += std::to_string(rem_s);
+  out += addPlaceholders(std::to_string(s), (h > 0 || m > 0) ? 2 : 0);
   out += ".";
-  out += std::to_string(rem_u);
+  out += addPlaceholders(std::to_string(u), 3);
 
   return out;
 }
-
+std::string Timer::addPlaceholders(const std::string& sz_in, int count, char p) {
+  std::string sz_out = sz_in;
+  while (sz_out.length() < count) {
+    sz_out = std::string((char*)&p, 1) + sz_out;
+  }
+  return sz_out;
+}
+int64_t Timer::toMs(int64_t h, int64_t m, int64_t s, int64_t u) {
+  int64_t ms = h * 60 * 60 * 1000 + m * 60 * 1000 + s * 1000 + u;
+  return ms;
+}
+void Timer::add(const std::string& time) {
+  int64_t h = 0, m = 0, s = 0, u = 0;
+  parse(time, h, m, s, u);
+  int64_t ms = toMs(h, m, s, u);
+  _durationMs += ms;
+  checkValidTime();
+}
+void Timer::sub(const std::string& time) {
+  int64_t h = 0, m = 0, s = 0, u = 0;
+  parse(time, h, m, s, u);
+  int64_t ms = toMs(h, m, s, u);
+  _durationMs -= ms;
+  checkValidTime();
+}
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -541,9 +562,11 @@ void Trainer::getFileOrCount(const std::filesystem::path& indir,
 
             if (size_pass) {
               if (file == nullptr) {
+                //Searching for the random file.
                 (*count)++;
               }
               else {
+                //We're using count to determine which file.
                 if ((*count) <= 0) {
                   *file = dir_entry.path().wstring();
                   return;
@@ -552,7 +575,7 @@ void Trainer::getFileOrCount(const std::filesystem::path& indir,
               }
             }
             else {
-              //std::cout<<"size for"<<dir_entry.path().string()<<" did not pass"<<std::endl;
+              //std::wcout<<"size for"<<dir_entry.path().string()<<" did not pass"<<std::endl;
             }
           }
         }
@@ -560,7 +583,7 @@ void Trainer::getFileOrCount(const std::filesystem::path& indir,
     }
   }
   else {
-    std::cout << "Error '" << indir << "' does not exist" << std::endl;
+    std::wcout << "Error '" << indir << "' does not exist" << std::endl;
   }
 }
 //https://web.archive.org/web/20180401093525/http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
@@ -600,7 +623,7 @@ int kbhit() {
 }
 bool Trainer::doInput() {
   if (kbhit()) {
-    std::cout << '\b';
+    std::wcout << '\b';
     char c = fgetc(stdin);
 
     if (c == ' ') {
@@ -649,7 +672,7 @@ bool Trainer::doInput() {
         _timer->sub("30s");
       }
     }
-    else if (_input.pressed(XK_C) || _input.pressed(XK_Z) || (c==3) || (c==26)) {
+    else if (_input.pressed(XK_C) || _input.pressed(XK_Z) || (c == 3) || (c == 26)) {
       //Not sure why but c==26 and 3 seem to be escape sequences input
       if (_input.pressOrHold(XK_Control_L) || _input.pressOrHold(XK_Control_R)) {
         return true;
@@ -666,22 +689,6 @@ bool Input::pressOrHold(KeySym key) {
   bool b = (getState(key) == Input::ButtonState::Press) || (getState(key) == Input::ButtonState::Hold);
   return b;
 }
-void Timer::add(const std::string& time) {
-  int64_t h, m, s;
-  parse(time, h, m, s);
-  _hours += h;
-  _minutes += m;
-  _seconds += s;
-  updateWithNewTime();
-}
-void Timer::sub(const std::string& time) {
-  int64_t h, m, s;
-  parse(time, h, m, s);
-  _hours -= h;
-  _minutes -= m;
-  _seconds -= s;
-  updateWithNewTime();
-}
 std::string Gu::escapeSingleQuotes(const std::string& str) {
   std::string out = "";
   for (auto i = 0; i < str.length(); ++i) {
@@ -695,62 +702,85 @@ std::string Gu::escapeSingleQuotes(const std::string& str) {
   return out;
 }
 void Trainer::showImage(const std::string& filecnv, bool print) {
-  std::string view = "xviewer ";
+  std::string view = "";
 
-  view += "-g -w ";  //No gallery, single window
-  if (_filters->_fullscreen) {
-    view += "-f ";
+  //Clear the progress bar before printing a newline.
+  wprintf(L"%ls%ls", std::wstring(c_PBSizeChars+1, ' ').c_str(),
+          std::wstring(c_PBSizeChars+1, '\b').c_str());
+
+  if (filecnv.length() == 0) {
+    std::wcout << "No file could be found that matched the given filter."
+               << "\r" << std::endl;
+    fflush(stdout);
   }
-  //view += "--display='HDMI-0' ";
-
-  if (!_filters->_verbose) {
-    view = std::string("2>/dev/null 1>/dev/null ") + view;
-  }
-  view = view + std::string("\"") + (filecnv) + std::string("\"");
-  if (!_filters->_verbose) {
-    view = view + std::string(" &");
-  }
-
-  view = std::string("( ") + view + std::string(" )");
-  //Wrap in subshell to stop focus shift
-  // view = std::string("(") + view + std::string(")");
-
-  //Erase progress bar so it doesn't fuck up
-  // struct winsize w;
-  // ioctl(0, TIOCGWINSZ, &w);
-  // int row_width = ((w.ws_col >= 2) ? (w.ws_col - 2) : (w.ws_col))-5;
-  // if(row_width > 20){
-  //   row_width = 20;
-  // }
-  // std::string clear(row_width, ' ');
-  // std::cout << clear;
-  // fflush(stdout);
-  fflush(stdout);
-
-  //Print file so we can grab it if we want
-  if (print) {
-    if (_filters->_verbose) {
-      std::cout << view;
+  else {
+    if (_filters->_customProgram.length()) {
+      view = _filters->_customProgram + " ";
     }
-    std::cout << filecnv << "\r" << std::endl;
-  }
+    else {
+      view = "xviewer ";
 
-  FILE* fv = popen(view.c_str(), "r");
-  if (fv == nullptr) {
-    std::cerr << "Error POPEN failed." << std::endl;
-  }
-  pclose(fv);
-  fflush(stdout);
+      view += "-g -w ";  //No gallery, single window
+      if (_filters->_fullscreen) {
+        view += "-f ";
+      }
+      //view += "--display='HDMI-0' ";
+    }
 
-  //focus ...
-  //$! gets this process ID
-  //
-  //xwininfo get window ID
-  //wmctrl -Ri {xdotool search --pid {$!}}
-  //shows display IDs
-  //xrandr -q | egrep "\sconnected" | egrep -o "^\S*"
+    if (!_filters->_verbose) {
+      view = std::string("2>/dev/null 1>/dev/null ") + view;
+    }
+    view = view + std::string("\"") + (filecnv) + std::string("\"");
+    if (!_filters->_verbose) {
+      view = view + std::string(" &");
+    }
+
+    view = std::string("( ") + view + std::string(" )");
+    fflush(stdout);
+
+    //How to stop focus shift I have no idea.
+
+    //Print file so we can grab it if we want
+    if (print) {
+      if (_filters->_verbose) {
+        std::wcout << Gu::ansiToUtf8(view);
+      }
+      std::wcout << Gu::ansiToUtf8(filecnv) << "\r" << std::endl;
+    }
+
+    FILE* fv = popen(view.c_str(), "r");
+    if (fv == nullptr) {
+      std::cerr << "Error POPEN failed." << std::endl;
+    }
+    pclose(fv);
+    fflush(stdout);
+
+    //focus ...
+    //$! gets this process ID
+    //xwininfo get window ID
+    //wmctrl -Ri {xdotool search --pid {$!}}
+    //shows display IDs
+    //xrandr -q | egrep "\sconnected" | egrep -o "^\S*"
+  }
 }
 void Trainer::printSpinner() {
+}
+std::wstring repeatWstr(int n, const std::wstring& st) {
+  std::wostringstream os;
+  for (int i = 0; i < n; i++) {
+    os << st;
+  }
+  return os.str();
+}
+std::string Gu::utf8ToAnsi(const std::wstring& in) {
+  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+  std::string out = converter.to_bytes(in);
+  return out;
+}
+std::wstring Gu::ansiToUtf8(const std::string& in) {
+  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+  std::wstring out = converter.from_bytes(in);
+  return out;
 }
 void Trainer::printTimer() {
   fflush(stdout);
@@ -759,19 +789,50 @@ void Trainer::printTimer() {
   struct winsize w;
   ioctl(0, TIOCGWINSZ, &w);
   int row_width = ((w.ws_col >= 2) ? (w.ws_col - 2) : (w.ws_col)) - 5;
-  if (row_width > 30) {
-    row_width = 30;
+  if (row_width > c_PBSizeChars - 2) {
+    row_width = c_PBSizeChars - 2;
+  }
+
+  double epct = _timer->elapsedPct();
+  double pb_dchars = (double)(row_width)*epct;
+  int pb_chars = (int)(pb_dchars);
+  double charpct = pb_dchars - (double)pb_chars;
+  wchar_t final_code = 0x258F - (int)round(7.0 * charpct);
+  std::wstring pb = std::wstring(pb_chars, 0x2588) + std::wstring(1, final_code);  // repeatWstr(pb_chars, L"\u2588");  //std::wstring(pb_chars, '=');//
+  std::wstring pb_sp = std::wstring(row_width - pb_chars == 0 ? row_width - pb_chars : row_width-pb_chars -1, ' ');
+  pb = std::wstring(L"\33[0;32m") + std::wstring(1, 0x2595) + pb + pb_sp + std::wstring(1, 0x258F) + std::wstring(L"\33[0;30m");
+
+  //Time
+  std::wstring time_st = Gu::ansiToUtf8(_timer->getString(!_filters->_countUp));
+
+  //Superimpose time onto progress bar.
+  auto epos = pb.length() / 2 - time_st.length() / 2;
+  pb.erase(epos, time_st.length());
+  pb = pb.substr(0, epos) + std::wstring(L"\33[0;34m")+time_st +std::wstring(L"\33[0;32m")+ pb.substr(epos, pb.length() - epos);
+
+  wprintf(L"%ls%ls", pb.c_str(), std::wstring(pb.length(), '\b').c_str());
+  fflush(stdout);
+
+  return;
+  /*
+  fflush(stdout);
+
+  //Progress Bar
+  struct winsize w;
+  ioctl(0, TIOCGWINSZ, &w);
+  int row_width = ((w.ws_col >= 2) ? (w.ws_col - 2) : (w.ws_col)) - 5;
+  if (row_width > c_PBSizeChars - 2) {
+    row_width = c_PBSizeChars - 2;
   }
 
   double epct = _timer->elapsedPct();
   int pb_chars = (int)((double)row_width * epct);
-  std::string pb = std::string(pb_chars, '=');
+  std::string pb = std::string(pb_chars, '=');// repeatWstr(pb_chars, "\u2500");  //"="std::string(pb_chars, '='); //
   std::string pb_sp = std::string(row_width - pb_chars, ' ');
   pb = std::string("[") + pb + pb_sp + std::string("]");
 
   //Time
-  std::string time_st = _timer->getString(false);
-  //std::string time_bk = std::string(time_st.length(), '\b');
+  std::string time_st = _timer->getString(!_filters->_countUp);
 
   //Superimpose time onto progress bar.
   auto epos = pb.length() / 2 - time_st.length() / 2;
@@ -779,23 +840,20 @@ void Trainer::printTimer() {
   pb = pb.substr(0, epos) + time_st + pb.substr(epos, pb.length() - epos);
 
   printf("%s%s", pb.c_str(), std::string(pb.length(), '\b').c_str());
-  //printf("%s%s%c\b%s%s", time_st.c_str(), time_bk.c_str(), cursor[pos], pb.c_str(), pb_bs.c_str());
   fflush(stdout);
-  //%c is the spinner
-  //pos = (pos + 1) % 4;
+ */
 }
 std::random_device rd;
 std::mt19937 mt(rd());
 std::string Trainer::grabImage() {
+  //Returns empty string if no filters matched the file.
   uint64_t count = 0;
   getFileOrCount(_filters, nullptr, &count);
   std::uniform_int_distribution<int64_t> dist(0, count);
   std::wstring filee = L"";
   uint64_t at = dist(mt);
   getFileOrCount(_filters, &filee, &at);
-  using convert_type = std::codecvt_utf8<wchar_t>;
-  std::wstring_convert<convert_type, wchar_t> converter;
-  std::string filecnv = converter.to_bytes(filee);
+  std::string filecnv = Gu::utf8ToAnsi(filee);
   _pastFiles.push_back(filecnv);
   _prevIdx = _pastFiles.size() - 1;
   return filecnv;
@@ -806,17 +864,17 @@ void Trainer::start(ImageFilters* filters, const std::string& time) {
   //Prevent any character input into the terminal
   struct termios oldt;
   if (tcgetattr(0, &oldt)) {
-    fprintf(stderr, "Error getting term attribs\n");
+    fwprintf(stderr, L"Error getting term attribs\n");
   }
   cfmakeraw(&oldt);
   if (tcsetattr(0, TCSANOW, &oldt)) {
-    fprintf(stderr, "Error setting term attribs\n");
+    fwprintf(stderr, L"Error setting term attribs\n");
   }
 
-  _timer = std::make_unique<Timer>();
-  _timer->init(time, nullptr);
-
   _filters = filters;
+
+  _timer = std::make_unique<Timer>();
+  _timer->init(time, nullptr, _filters->_allowZeroTime);
 
   _timer->setTick([&]() {
     //Removing this in favor of -w switch which is much less annoying. If a future problem we can kill it.
