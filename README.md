@@ -60,11 +60,11 @@ Rapid sketch practice program for artists.
 
 ### Details:
 
-   The purpose of this program is to aid artists in drawing.
+   The purpose of this program is to aid artists in drawing but it can be used for other purposes. 
 
-   Cycles random images (xviewer) for the specified time in a directory.
-
-   Allows you to go back through the images and pause and play.
+   The program simply counts down a timer and calls the specified program on a random image (png,jpg,gif) with xviewer by default.
+   
+   Controls allows you to navigate the past files and change time
 
 ### Controls:
 
@@ -81,6 +81,8 @@ Rapid sketch practice program for artists.
    down : subtract 30 seconds
 
    shift+up/down : add/sub 30 minutes
+
+   Ctr+X:  exit.
 
 ### BUGS
 

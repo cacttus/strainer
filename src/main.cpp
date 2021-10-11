@@ -3,7 +3,6 @@
 //
 //
 #include "./Trainer.h"
-#include <locale.h>
 
 int main(int argc, char** argv) {
   //fwide -- Here we set everything to use utf8
@@ -12,7 +11,6 @@ int main(int argc, char** argv) {
 
   ImageFilters filt;
   filt._types = std::vector<std::string>{ ".png", ".jpg", ".gif", ".jpeg" };
-
 
   //Help
   if (argc == 2 && ((std::string(argv[1]).compare("--help") == 0) || (std::string(argv[1]).compare("-h") == 0) || (std::string(argv[1]).compare("/help") == 0))) {

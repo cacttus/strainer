@@ -315,8 +315,6 @@ void Timer::checkValidTime() {
   }
   if (_allowZero == false && _durationMs < c_minTimeMS) {
     _durationMs = c_minTimeMS;
-    std::wcout << "Warning total time is less than " << c_minTimeMS / 1000
-               << " second(s), setting to " << c_minTimeMS / 1000 << " second(s)." << std::endl;
   }
 }
 void Timer::parse(const std::string& timestr, int64_t& _hours_out, int64_t& _minutes_out, int64_t& _seconds_out, int64_t& _u_out) {
@@ -785,6 +783,8 @@ std::wstring Gu::ansiToUtf8(const std::string& in) {
 void Trainer::printTimer() {
   fflush(stdout);
 
+  bool color = false;
+
   //Progress Bar
   struct winsize w;
   ioctl(0, TIOCGWINSZ, &w);
@@ -800,7 +800,7 @@ void Trainer::printTimer() {
   wchar_t final_code = 0x258F - (int)round(7.0 * charpct);
   std::wstring pb = std::wstring(pb_chars, 0x2588) + std::wstring(1, final_code);  // repeatWstr(pb_chars, L"\u2588");  //std::wstring(pb_chars, '=');//
   std::wstring pb_sp = std::wstring(row_width - pb_chars == 0 ? row_width - pb_chars : row_width-pb_chars -1, ' ');
-  pb = std::wstring(L"\33[0;32m") + std::wstring(1, 0x2595) + pb + pb_sp + std::wstring(1, 0x258F) + std::wstring(L"\33[0;30m");
+  pb = std::wstring( color ? L"\33[0;32m" : L"") + std::wstring(1, 0x2595) + pb + pb_sp + std::wstring(1, 0x258F) + std::wstring(color ? L"\33[0;30m" : L"");
 
   //Time
   std::wstring time_st = Gu::ansiToUtf8(_timer->getString(!_filters->_countUp));
@@ -808,7 +808,7 @@ void Trainer::printTimer() {
   //Superimpose time onto progress bar.
   auto epos = pb.length() / 2 - time_st.length() / 2;
   pb.erase(epos, time_st.length());
-  pb = pb.substr(0, epos) + std::wstring(L"\33[0;34m")+time_st +std::wstring(L"\33[0;32m")+ pb.substr(epos, pb.length() - epos);
+  pb = pb.substr(0, epos) + std::wstring(color ? L"\33[0;34m" : L"")+time_st +std::wstring(color ? L"\33[0;32m" : L"")+ pb.substr(epos, pb.length() - epos);
 
   wprintf(L"%ls%ls", pb.c_str(), std::wstring(pb.length(), '\b').c_str());
   fflush(stdout);
