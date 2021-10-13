@@ -1,4 +1,4 @@
-# Sketch Trainer For Linux
+# Timed App Trainer For Linux
 
 strain --help
 
