@@ -1,11 +1,7 @@
-// -t 5m30s
-// -p /root/dev
-//
-//
 #include "./Trainer.h"
 
 int main(int argc, char** argv) {
-  //fwide -- Here we set everything to use utf8
+  //Here we set everything to use utf8
   std::setlocale(LC_ALL, "");
   wprintf(L"");
 
@@ -41,22 +37,21 @@ int main(int argc, char** argv) {
     std::wcout << "      Allow time to be less than 5s (min 0s). [Use with caution]" << std::endl;
     std::wcout << "   -u" << std::endl;
     std::wcout << "      Timer will count up to the given time instead of down to zero." << std::endl;
-    std::wcout << "Details:" << std::endl;
-    std::wcout << "   The purpose of this program is to aid artists in drawing." << std::endl;
-    std::wcout << "   Cycles random images (xviewer or custom app) for the specified time in a directory." << std::endl;
-    std::wcout << "   Allows you to go back through the images and pause and play." << std::endl;
+    std::wcout << "   -y 'fmt1 fmt2 fmt3 ... fmtn'" << std::endl;
+    std::wcout << "      File formats space separated with '.', MUST be quoted to prevent shell interpretation. ex '.jpg .gif .png .avi'" << std::endl;
     std::wcout << "Controls:" << std::endl;
     std::wcout << "   spacebar : pause / resume" << std::endl;
     std::wcout << "   r : reset timer" << std::endl;
-    std::wcout << "   left : previous image" << std::endl;
-    std::wcout << "   right : next image" << std::endl;
-    std::wcout << "   up : add 30 seconds" << std::endl;
-    std::wcout << "   down : subtract 30 seconds" << std::endl;
-    std::wcout << "   shift+up/down : add/sub 30 minutes" << std::endl;
+    std::wcout << "   c : jump to current image if cycling." << std::endl;
+    std::wcout << "   up/down : add/subtract 30 seconds to total time" << std::endl;
+    std::wcout << "   right/left : add/sub 30 seconds to current time" << std::endl;
+    std::wcout << "   ctrl+left : previous shown image" << std::endl;
+    std::wcout << "   ctrl+right : next image (next random image if top of image stack)" << std::endl;
+    std::wcout << "   shift+up/down : add/sub 30 minutes to total time" << std::endl;
     std::wcout << "BUGS" << std::endl;
-    std::wcout << "   Spaces in paths. Linux std::filesystem::path appears to error on spaces. Google didn't find anything." << std::endl;
-    std::wcout << "   The KB Arrow input is laggy and confusing. We're using 2 kinds of input. Should fix the arrow input." << std::endl;
-    std::wcout << "   Window loses focus when xviewer shows. Annoying when cycling images .." << std::endl;
+    std::wcout << "   Spaces in paths. Linux std::filesystem::path appears to error on spaces." << std::endl;
+    std::wcout << "   The KB Arrow input is laggy. We're using 2 kinds of input. Should fix the arrow input." << std::endl;
+    std::wcout << "   Window loses focus when xviewer shows. Annoying when cycling images." << std::endl;
     exit(0);
   }
 
@@ -74,25 +69,25 @@ int main(int argc, char** argv) {
   }
 #define GetArg2OrFail(inarg, vari)                                    \
   if (!v.compare(inarg)) {                                            \
-    if (argi < argc) {                                                \
+    if (argi + 1 < argc) {                                            \
       vari;                                                           \
       argi++;                                                         \
       handled = true;                                                 \
     }                                                                 \
     else {                                                            \
-      Gu::errorExit(Gu::fmt("No switch passed to parameter", inarg)); \
+      Gu::errorExit(Gu::fmt("No switch passed to parameter %s", inarg)); \
     }                                                                 \
   }
 #define GetArg3OrFail(inarg, vari)                                              \
   if (!v.compare(inarg)) {                                                      \
-    if (argi + 1 < argc) {                                                      \
+    if (argi + 2 < argc) {                                                      \
       vari;                                                                     \
       argi++;                                                                   \
       argi++;                                                                   \
       handled = true;                                                           \
     }                                                                           \
     else {                                                                      \
-      Gu::errorExit(Gu::fmt("Not enough switches passed to parameter", inarg)); \
+      Gu::errorExit(Gu::fmt("Not enough switches passed to parameter %s", inarg)); \
     }                                                                           \
   }
       std::string v(argv[argi]);
@@ -112,6 +107,7 @@ int main(int argc, char** argv) {
       GetArg1OrFail("-x", filt._allowZeroTime = true);
       GetArg1OrFail("-u", filt._countUp = true);
       GetArg2OrFail("-a", filt._customProgram = Gu::stripQuotes(argv[argi + 1]));
+      GetArg2OrFail("-y", filt.parseTypes(Gu::stripQuotes(argv[argi + 1])));
       if (handled == false) {
         std::wcout << "Unrecognized argument '" << Gu::ansiToUtf8(v) << "'." << std::endl;
       }
