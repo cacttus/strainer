@@ -24,6 +24,24 @@ std::string int_to_hex(T i) {
 void Gu::focusWindow() {
   //  std::string cmd = "(wmctrl -a -i 'trainer')"
 }
+std::string Gu::getX11WindowID() {
+  auto display = XOpenDisplay(NULL);  //0:
+  Window focus;
+  int revert;
+//XSetWindowAttributes()
+  // XGetInputFocus(display, &focus, &revert);
+  // XSetInputFocus(display, win, RevertToNone, CurrentTime);
+  // std::string h = int_to_hex(focus);
+
+  std::string cmd = "";
+  // std::string cmd = std::string("echo $(xdotool search --pid " + std::to_string(getpid()) + ")");
+   std::string ret = Gu::executeReadOutput(cmd.c_str());
+  // if (ret.length() && ret[ret.length() - 1] == '\n') {
+  //   ret = ret.substr(0, ret.length() - 1);
+  // }
+
+  return ret;
+}
 bool Gu::hasFocus() {
   return true;
   // god fuck this noise "can't get pid from winid" fuck that. seriously?
@@ -82,25 +100,11 @@ std::string Gu::fmt(const std::string& aft, ...) {
   return strRet;
 }
 std::string Gu::formatVa(const std::string& aft, va_list args) {
-  //Yeah I don't know what's going on here. Linux bug maybe. first vsnprintf .. works .. second doesn't .. remove second .. first doesn't work.
-
+  static char buf[4096];
   std::string strRet = "";
-  //he vsnprintf function returns the number of characters written, not counting the terminating null character.
-  char buf[4096];
-  int nCount2 = vsnprintf(buf, 4096, aft.c_str(), args);
-  std::string cv(buf, nCount2);
-  int nCount = vsnprintf(nullptr, 0, aft.c_str(), args);
-
-  if (nCount == 0) {
-    //Empty, no format
-  }
-  else {
-    std::unique_ptr<char[]> tmp(new char[nCount]);
-    vsnprintf(tmp.get(), nCount, aft.c_str(), args);
-    strRet = std::string((char*)tmp.get(), nCount);
-  }
-
-  return cv;
+  vsnprintf(buf, 4096, aft.c_str(), args);
+  strRet = std::string((char*)buf);
+  return strRet;
 }
 std::wstring Gu::fmtw(const std::wstring& aft, ...) {
   std::wstring strRet;
@@ -237,7 +241,19 @@ bool Gu::getImageSize(const char* fn, int* x, int* y) {
 
   return false;
 }
-
+bool ImageFilters::parseTypes(const std::string& tlist) {
+  std::vector<std::string> types;
+  std::istringstream st(tlist);
+  std::string tmp;
+  while (getline(st, tmp, ' ')) {
+    if (!tmp.length() || tmp[0] != '.') {
+      return false;
+    }
+    types.push_back(tmp);
+  }
+  _types = types;
+  return true;
+}
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void Input::registerButton(KeySym key) {
@@ -460,20 +476,47 @@ int64_t Timer::toMs(int64_t h, int64_t m, int64_t s, int64_t u) {
   int64_t ms = h * 60 * 60 * 1000 + m * 60 * 1000 + s * 1000 + u;
   return ms;
 }
-void Timer::add(const std::string& time) {
+void Timer::addTotal(const std::string& time) {
+  addOrSubTotalOrCurrent(time, false, false);
+}
+void Timer::subTotal(const std::string& time) {
+  addOrSubTotalOrCurrent(time, true, false);
+}
+void Timer::addCurrent(const std::string& time) {
+  addOrSubTotalOrCurrent(time, false, true);
+}
+void Timer::subCurrent(const std::string& time) {
+  addOrSubTotalOrCurrent(time, true, true);
+}
+void Timer::addOrSubTotalOrCurrent(const std::string& time, bool sub, bool current) {
   int64_t h = 0, m = 0, s = 0, u = 0;
   parse(time, h, m, s, u);
   int64_t ms = toMs(h, m, s, u);
-  _durationMs += ms;
+  if (current) {
+    if (sub) {
+      _total -= ms;
+      if (_total < 0) {
+        _total = 0;
+      }
+    }
+    else {
+      _total += ms;
+      if (_total > _durationMs) {
+        _durationMs = _total;
+      }
+    }
+  }
+  else {
+    if (sub) {
+      _durationMs -= ms;
+    }
+    else {
+      _durationMs += ms;
+    }
+  }
   checkValidTime();
 }
-void Timer::sub(const std::string& time) {
-  int64_t h = 0, m = 0, s = 0, u = 0;
-  parse(time, h, m, s, u);
-  int64_t ms = toMs(h, m, s, u);
-  _durationMs -= ms;
-  checkValidTime();
-}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -636,38 +679,51 @@ bool Trainer::doInput() {
     else if (c == 'r') {
       _timer->reset();
     }
+    else if (c == 'c') {
+      showImage(_pastFiles[_pastFiles.size() - 1], false);
+    }
     //These don't use that non blocking thing.
     else if (_input.pressed(XK_Right)) {
-      _timer->pause();
-      if (_prevIdx < _pastFiles.size() - 1) {
-        _prevIdx++;
-        showImage(_pastFiles[_prevIdx], false);
+      if (_input.pressOrHold(XK_Control_L) || _input.pressOrHold(XK_Control_R)) {
+        _timer->pause();
+        if (_prevIdx < _pastFiles.size() - 1) {
+          _prevIdx++;
+          showImage(_pastFiles[_prevIdx], false);
+        }
+        else {
+          showImage(grabImage());
+        }
       }
       else {
-        showImage(grabImage());
+        _timer->addCurrent("30s");
       }
     }
     else if (_input.pressed(XK_Left)) {
-      _timer->pause();
-      if (_prevIdx > 0) {
-        _prevIdx--;
+      if (_input.pressOrHold(XK_Control_L) || _input.pressOrHold(XK_Control_R)) {
+        _timer->pause();
+        if (_prevIdx > 0) {
+          _prevIdx--;
+        }
+        showImage(_pastFiles[_prevIdx], false);
       }
-      showImage(_pastFiles[_prevIdx], false);
+      else {
+        _timer->subCurrent("30s");
+      }
     }
     else if (_input.pressed(XK_Up)) {
       if (_input.pressOrHold(XK_Shift_L)) {
-        _timer->add("30m");
+        _timer->addTotal("30m");
       }
       else {
-        _timer->add("30s");
+        _timer->addTotal("30s");
       }
     }
     else if (_input.pressed(XK_Down)) {
       if (_input.pressOrHold(XK_Shift_L)) {
-        _timer->sub("30m");
+        _timer->subTotal("30m");
       }
       else {
-        _timer->sub("30s");
+        _timer->subTotal("30s");
       }
     }
     else if (_input.pressed(XK_C) || _input.pressed(XK_Z) || (c == 3) || (c == 26)) {
@@ -703,8 +759,8 @@ void Trainer::showImage(const std::string& filecnv, bool print) {
   std::string view = "";
 
   //Clear the progress bar before printing a newline.
-  wprintf(L"%ls%ls", std::wstring(c_PBSizeChars+1, ' ').c_str(),
-          std::wstring(c_PBSizeChars+1, '\b').c_str());
+  wprintf(L"%ls%ls", std::wstring(c_PBSizeChars + 1, ' ').c_str(),
+          std::wstring(c_PBSizeChars + 1, '\b').c_str());
 
   if (filecnv.length() == 0) {
     std::wcout << "No file could be found that matched the given filter."
@@ -799,8 +855,8 @@ void Trainer::printTimer() {
   double charpct = pb_dchars - (double)pb_chars;
   wchar_t final_code = 0x258F - (int)round(7.0 * charpct);
   std::wstring pb = std::wstring(pb_chars, 0x2588) + std::wstring(1, final_code);  // repeatWstr(pb_chars, L"\u2588");  //std::wstring(pb_chars, '=');//
-  std::wstring pb_sp = std::wstring(row_width - pb_chars == 0 ? row_width - pb_chars : row_width-pb_chars -1, ' ');
-  pb = std::wstring( color ? L"\33[0;32m" : L"") + std::wstring(1, 0x2595) + pb + pb_sp + std::wstring(1, 0x258F) + std::wstring(color ? L"\33[0;30m" : L"");
+  std::wstring pb_sp = std::wstring(row_width - pb_chars == 0 ? row_width - pb_chars : row_width - pb_chars - 1, ' ');
+  pb = std::wstring(color ? L"\33[0;32m" : L"") + std::wstring(1, 0x2595) + pb + pb_sp + std::wstring(1, 0x258F) + std::wstring(color ? L"\33[0;30m" : L"");
 
   //Time
   std::wstring time_st = Gu::ansiToUtf8(_timer->getString(!_filters->_countUp));
@@ -808,7 +864,7 @@ void Trainer::printTimer() {
   //Superimpose time onto progress bar.
   auto epos = pb.length() / 2 - time_st.length() / 2;
   pb.erase(epos, time_st.length());
-  pb = pb.substr(0, epos) + std::wstring(color ? L"\33[0;34m" : L"")+time_st +std::wstring(color ? L"\33[0;32m" : L"")+ pb.substr(epos, pb.length() - epos);
+  pb = pb.substr(0, epos) + std::wstring(color ? L"\33[0;34m" : L"") + time_st + std::wstring(color ? L"\33[0;32m" : L"") + pb.substr(epos, pb.length() - epos);
 
   wprintf(L"%ls%ls", pb.c_str(), std::wstring(pb.length(), '\b').c_str());
   fflush(stdout);
@@ -860,6 +916,10 @@ std::string Trainer::grabImage() {
 }
 void Trainer::start(ImageFilters* filters, const std::string& time) {
   assert(filters != nullptr);
+    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(100));
+
+  ///std::string this_windowid = Gu::getX11WindowID();
+  //XGetInputFocus()
 
   //Prevent any character input into the terminal
   struct termios oldt;

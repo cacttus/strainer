@@ -20,10 +20,13 @@ public:
   State state() { return _state; }
   std::string getString(bool remaining);
   double elapsedPct() { return (double)(_total) / (double)(_durationMs); }
-  void add(const std::string& time);
-  void sub(const std::string& time);
+  void addTotal(const std::string& time);
+  void subTotal(const std::string& time);
+  void addCurrent(const std::string& time);
+  void subCurrent(const std::string& time);
 
 private:
+  void addOrSubTotalOrCurrent(const std::string& time, bool sub, bool current);
   void setDuration(const std::string& time);
   static void parseMicroseconds(int64_t microseconds, int64_t& h, int64_t& m, int64_t& s, int64_t& u);
   static int64_t toMs(int64_t h, int64_t m, int64_t s, int64_t u);
@@ -34,7 +37,7 @@ private:
   int64_t _durationMs = 0;
   std::function<void()> _tick = nullptr;
   std::chrono::high_resolution_clock::time_point _last;
-  uint64_t _total = 0;
+  int64_t _total = 0;
   bool _allowZero = false;  //Caution
   const int64_t c_minTimeMS = 5000;
 };
@@ -55,6 +58,7 @@ public:
   bool _allowZeroTime = false;
   bool _countUp = false;
   std::string _customProgram = "";
+  bool parseTypes(const std::string& tlist) ;
 };
 class ImageInfo {
 public:
@@ -83,6 +87,7 @@ public:
   static std::string enquote(const std::string& inputt, bool use_single_quotes = false);
   static std::string utf8ToAnsi(const std::wstring& in);
   static std::wstring ansiToUtf8(const std::string& in);
+  static std::string getX11WindowID();
 };
 class Input {
 public:
