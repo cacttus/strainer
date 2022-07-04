@@ -1,8 +1,6 @@
-# Timed App Trainer For Linux
+# Termainl App version of Sketchy (Linux)
 
-strain --help
-
-Rapid sketch practice program for artists.
+run `strain --help` for more information.
 
 ### Usage:
 
